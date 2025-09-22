@@ -562,16 +562,16 @@
                 // Add AI response
                 addMessage(currentSpeaker, response);
                 
-                // Speak the response
-                speakText(response, currentSpeaker);
+                // Speak the response and wait for it to finish
+                await speakText(response, currentSpeaker);
                 
                 currentTurn++;
                 
-                // Schedule next response
+                // Schedule next response with a shorter delay since voice is done
                 if (isRunning && !isPaused && currentTurn < maxTurns) {
                     setTimeout(() => {
                         nextAIResponse(topic, mode);
-                    }, 3000);
+                    }, 1500);
                 } else if (currentTurn >= maxTurns) {
                     updateStatus('ready', 'Completed');
                     addMessage('host', '🎬 Thank you for experiencing AI Talk Show! The conversation has reached its natural conclusion.');
@@ -697,56 +697,65 @@ Your turn as ${speakerNames[speaker]}. Reply concisely (max 2-3 sentences) and e
         
         // Text-to-Speech functionality
         function speakText(text, speaker) {
-            if ('speechSynthesis' in window) {
-                // Cancel any ongoing speech
-                speechSynthesis.cancel();
-                
-                const utterance = new SpeechSynthesisUtterance(text);
-                
-                // Configure voice based on speaker
-                const voices = speechSynthesis.getVoices();
-                let selectedVoice = null;
-                
-                switch (speaker) {
-                    case 'claude':
-                        // Prefer a professional, neutral voice
-                        selectedVoice = voices.find(voice => 
-                            voice.lang.includes('en') && 
-                            (voice.name.includes('Alex') || voice.name.includes('Daniel') || voice.name.includes('British'))
-                        );
-                        utterance.rate = 0.9;
-                        utterance.pitch = 1.0;
-                        break;
-                    case 'chatgpt':
-                        // Prefer a friendly, conversational voice
-                        selectedVoice = voices.find(voice => 
-                            voice.lang.includes('en-US') && 
-                            (voice.name.includes('Samantha') || voice.name.includes('Karen') || voice.name.includes('Zira'))
-                        );
-                        utterance.rate = 1.0;
-                        utterance.pitch = 1.1;
-                        break;
-                    case 'gemini':
-                        // Prefer a dynamic, slightly younger voice
-                        selectedVoice = voices.find(voice => 
-                            voice.lang.includes('en') && 
-                            (voice.name.includes('Victoria') || voice.name.includes('Allison') || voice.name.includes('Fiona'))
-                        );
-                        utterance.rate = 1.1;
-                        utterance.pitch = 1.2;
-                        break;
-                    default:
-                        selectedVoice = voices.find(voice => voice.lang.includes('en'));
+            return new Promise((resolve) => {
+                if ('speechSynthesis' in window) {
+                    // Cancel any ongoing speech
+                    speechSynthesis.cancel();
+                    
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    
+                    // Configure voice based on speaker
+                    const voices = speechSynthesis.getVoices();
+                    let selectedVoice = null;
+                    
+                    switch (speaker) {
+                        case 'claude':
+                            // Prefer a professional, neutral voice
+                            selectedVoice = voices.find(voice => 
+                                voice.lang.includes('en') && 
+                                (voice.name.includes('Alex') || voice.name.includes('Daniel') || voice.name.includes('British'))
+                            );
+                            utterance.rate = 0.9;
+                            utterance.pitch = 1.0;
+                            break;
+                        case 'chatgpt':
+                            // Prefer a friendly, conversational voice
+                            selectedVoice = voices.find(voice => 
+                                voice.lang.includes('en-US') && 
+                                (voice.name.includes('Samantha') || voice.name.includes('Karen') || voice.name.includes('Zira'))
+                            );
+                            utterance.rate = 1.0;
+                            utterance.pitch = 1.1;
+                            break;
+                        case 'gemini':
+                            // Prefer a dynamic, slightly younger voice
+                            selectedVoice = voices.find(voice => 
+                                voice.lang.includes('en') && 
+                                (voice.name.includes('Victoria') || voice.name.includes('Allison') || voice.name.includes('Fiona'))
+                            );
+                            utterance.rate = 1.1;
+                            utterance.pitch = 1.2;
+                            break;
+                        default:
+                            selectedVoice = voices.find(voice => voice.lang.includes('en'));
+                    }
+                    
+                    if (selectedVoice) {
+                        utterance.voice = selectedVoice;
+                    }
+                    
+                    utterance.volume = 0.8;
+                    
+                    // Wait for speech to finish before resolving
+                    utterance.onend = () => resolve();
+                    utterance.onerror = () => resolve(); // Resolve even on error to continue
+                    
+                    speechSynthesis.speak(utterance);
+                } else {
+                    // If no speech synthesis, just resolve immediately
+                    resolve();
                 }
-                
-                if (selectedVoice) {
-                    utterance.voice = selectedVoice;
-                }
-                
-                utterance.volume = 0.8;
-                
-                speechSynthesis.speak(utterance);
-            }
+            });
         }
         
         // Load voices when they become available
